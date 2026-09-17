@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Календарь: вода и тренировки</title>
+<style>
+  :root{
+    --bg:#f7f8fb;
+    --card:#ffffff;
+    --text:#1c1f26;
+    --muted:#6b7280;
+    --border:#e5e7eb;
+    --accent:#3b82f6;
+    --water:#3b82f6;
+    --water-bg:#eaf2ff;
+    --ex1:#f59e0b; /* гантели */
+    --ex2:#8b5cf6; /* йога */
+    --ex3:#ec4899; /* танцы */
+    --exN:#10b981; /* прочее */
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#111318;
+      --card:#181b22;
+      --text:#eef0f3;
+      --muted:#9aa3b2;
+      --border:#2a2e37;
+      --water-bg:#152238;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#111318;
+    --card:#181b22;
+    --text:#eef0f3;
+    --muted:#9aa3b2;
+    --border:#2a2e37;
+    --water-bg:#152238;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding:16px;
+  }
+  .wrap{max-width:1100px;margin:0 auto;}
+  .header{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:16px;flex-wrap:wrap;gap:12px;
+  }
+  .header h1{font-size:20px;margin:0;display:flex;align-items:center;gap:8px;}
+  .year-nav{display:flex;align-items:center;gap:10px;}
+  .year-nav button{
+    border:1px solid var(--border);background:var(--card);color:var(--text);
+    border-radius:8px;width:32px;height:32px;font-size:16px;cursor:pointer;
+  }
+  .year-nav span{font-weight:700;font-size:18px;min-width:60px;text-align:center;}
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-bottom:14px;}
+  .legend .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:middle;}
+  .summary-bar{
+    background:var(--card);border:1px solid var(--border);border-radius:12px;
+    padding:12px 16px;margin-bottom:18px;display:flex;gap:24px;flex-wrap:wrap;
+    box-shadow:var(--shadow);
+  }
+  .summary-bar .stat{font-size:13px;color:var(--muted);}
+  .summary-bar .stat b{color:var(--text);font-size:15px;}
+  .months-grid{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:16px;
+  }
+  @media (max-width:800px){ .months-grid{grid-template-columns:repeat(2,1fr);} }
+  @media (max-width:520px){ .months-grid{grid-template-columns:1fr;} }
+  .month-card{
+    background:var(--card);border:1px solid var(--border);border-radius:14px;
+    padding:12px;box-shadow:var(--shadow);
+  }
+  .month-title{font-weight:700;font-size:14px;margin-bottom:8px;text-align:center;}
+  .weekdays{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:4px;}
+  .weekdays span{font-size:10px;color:var(--muted);text-align:center;}
+  .days-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+  .day-cell{
+    aspect-ratio:1;border-radius:7px;border:1px solid transparent;
+    display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+    padding:2px 1px;cursor:pointer;position:relative;background:var(--bg);
+    font-size:10px;overflow:hidden;
+  }
+  .day-cell.empty{visibility:hidden;cursor:default;}
+  .day-cell:focus{outline:3px solid #f59e0b; outline-offset:1px;}
+  .day-cell:hover{border-color:var(--accent);}
+  .day-cell.today{
+    outline:3px solid var(--accent);
+    outline-offset:-2px;
+    box-shadow:0 0 0 3px rgba(59,130,246,0.28);
+    z-index:1;
+  }
+  .day-cell.today .day-num{font-weight:900;}
+  .day-cell.today::after{
+    content:'●';
+    position:absolute;
+    top:1px; right:2px;
+    font-size:6px;
+    color:var(--accent);
+  }
+  .day-num{font-size:10px;color:var(--muted);font-weight:700;}
+  .day-marks{display:flex;flex-wrap:wrap;gap:1px;justify-content:center;margin-top:2px;}
+  .mark{width:6px;height:6px;border-radius:50%;border:1px solid rgba(255,255,255,0.6);}
+  .mark.water{background:var(--water);}
+  .mark.ex1{background:var(--ex1);}
+  .mark.ex2{background:var(--ex2);}
+  .mark.ex3{background:var(--ex3);}
+  .mark.exN{background:var(--exN);}
+  .day-cell.status-full{background:#86efac;}
+  .day-cell.status-full .day-num{color:#14532d;}
+  .day-cell.status-partial{background:#f9a8d4;}
+  .day-cell.status-partial .day-num{color:#831843;}
+  .day-cell.status-none{background:#fca5a5;}
+  .day-cell.status-none .day-num{color:#7f1d1d;}
+  .day-cell.status-blue{background:#93c5fd;}
+  .day-cell.status-blue .day-num{color:#1e3a8a;}
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]) .day-cell.status-full{background:#166534;}
+    :root:not([data-theme="light"]) .day-cell.status-full .day-num{color:#bbf7d0;}
+    :root:not([data-theme="light"]) .day-cell.status-partial{background:#9d174d;}
+    :root:not([data-theme="light"]) .day-cell.status-partial .day-num{color:#fbcfe8;}
+    :root:not([data-theme="light"]) .day-cell.status-none{background:#7f1d1d;}
+    :root:not([data-theme="light"]) .day-cell.status-none .day-num{color:#fecaca;}
+    :root:not([data-theme="light"]) .day-cell.status-blue{background:#1e40af;}
+    :root:not([data-theme="light"]) .day-cell.status-blue .day-num{color:#bfdbfe;}
+  }
+  :root[data-theme="dark"] .day-cell.status-full{background:#166534;}
+  :root[data-theme="dark"] .day-cell.status-full .day-num{color:#bbf7d0;}
+  :root[data-theme="dark"] .day-cell.status-partial{background:#9d174d;}
+  :root[data-theme="dark"] .day-cell.status-partial .day-num{color:#fbcfe8;}
+  :root[data-theme="dark"] .day-cell.status-none{background:#7f1d1d;}
+  :root[data-theme="dark"] .day-cell.status-none .day-num{color:#fecaca;}
+  :root[data-theme="dark"] .day-cell.status-blue{background:#1e40af;}
+  :root[data-theme="dark"] .day-cell.status-blue .day-num{color:#bfdbfe;}
+
+  /* Modal */
+  .overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,0.45);
+    display:flex;align-items:center;justify-content:center;padding:16px;z-index:50;
+  }
+  .modal{
+    background:var(--card);border-radius:16px;padding:20px;width:100%;max-width:420px;
+    max-height:90vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,0.25);
+  }
+  .modal h2{margin:0 0 14px 0;font-size:17px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600;}
+  .field input[type=number], .field select, .field input[type=text]{
+    width:100%;padding:9px 10px;border-radius:9px;border:1px solid var(--border);
+    background:var(--bg);color:var(--text);font-size:14px;
+  }
+  .water-row{display:flex;align-items:center;gap:8px;}
+  .water-row span{font-size:13px;color:var(--muted);}
+  .ex-row{
+    display:flex;gap:6px;margin-bottom:8px;align-items:center;
+  }
+  .ex-row select{flex:1.6;min-width:0;}
+  .ex-row input{flex:0.8;min-width:0;}
+  .ex-row button{
+    border:none;background:none;color:#ef4444;font-size:16px;cursor:pointer;padding:4px 6px;
+  }
+  .add-ex-btn, .add-type-btn{
+    border:1px dashed var(--border);background:none;color:var(--accent);
+    border-radius:9px;padding:8px 10px;font-size:13px;cursor:pointer;width:100%;margin-top:4px;
+  }
+  .new-type-row{display:flex;gap:6px;margin-top:8px;}
+  .new-type-row input{flex:1;}
+  .new-type-row button{
+    border:none;background:var(--accent);color:#fff;border-radius:8px;padding:0 12px;cursor:pointer;font-size:13px;
+  }
+  .modal-actions{display:flex;gap:10px;margin-top:18px;}
+  .btn{
+    flex:1;padding:11px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;
+  }
+  .btn.save{background:var(--accent);color:#fff;}
+  .btn.cancel{background:var(--border);color:var(--text);}
+  .save-status{
+    position:fixed;bottom:16px;left:50%;transform:translateX(-50%);
+    background:var(--text);color:var(--bg);padding:8px 16px;border-radius:20px;
+    font-size:12px;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:100;
+  }
+  .save-status.show{opacity:0.9;}
+  .storage-note{font-size:11px;color:var(--muted);text-align:center;margin-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div id="modal-root"></div>
+<div class="save-status" id="saveStatus">Сохранено</div>
+
+<script id="app-script">
+(function(){
+  var MONTHS = ["Январь","Февраль","Март","Апрель","Май","Июнь","Июль","Август","Сентябрь","Октябрь","Ноябрь","Декабрь"];
+  var WEEKDAYS = ["Пн","Вт","Ср","Чт","Пт","Сб","Вс"];
+
+  var DEFAULT_STATE = {"year": 2026, "days": {}, "types": [{"id":"ex1","name":"Гантели","icon":"🏋️"},{"id":"ex2","name":"Йога","icon":"🧘"},{"id":"ex3","name":"Танцы","icon":"💃"}]};
+  var state = DEFAULT_STATE;
+  var editingDate = null;
+  var scrollToToday = true;
+  var STORAGE_KEY = 'waterFitnessCalendarState_v1';
+
+  function pad(n){ return n<10 ? '0'+n : ''+n; }
+  function dateKey(y,m,d){ return y+'-'+pad(m+1)+'-'+pad(d); }
+  function todayKey(){
+    var t = new Date();
+    return dateKey(t.getFullYear(), t.getMonth(), t.getDate());
+  }
+  function daysInMonth(y,m){ return new Date(y, m+1, 0).getDate(); }
+  function firstWeekdayMon(y,m){
+    var wd = new Date(y,m,1).getDay(); // 0=Sun
+    return (wd+6)%7; // 0=Mon
+  }
+  function typeColorClass(typeId){
+    if(typeId==='ex1') return 'ex1';
+    if(typeId==='ex2') return 'ex2';
+    if(typeId==='ex3') return 'ex3';
+    return 'exN';
+  }
+  function getType(id){
+    for(var i=0;i<state.types.length;i++){ if(state.types[i].id===id) return state.types[i]; }
+    return {id:id,name:id,icon:'⭐'};
+  }
+
+  var WATER_GOAL = 0.5; // задача "вода" считается выполненной от этого объёма
+  var TASK_TYPE_IDS = ['ex1','ex2','ex3']; // гантели, йога, танцы — три задачи-тренировки
+
+  function dayStatus(entry){
+    if(!entry) return 'status-none';
+    var waterDone = !!(entry.water && entry.water >= WATER_GOAL);
+    var doneTypes = {};
+    if(entry.exercises){
+      for(var i=0;i<entry.exercises.length;i++){ doneTypes[entry.exercises[i].type] = true; }
+    }
+    var completed = (waterDone?1:0);
+    for(var t=0;t<TASK_TYPE_IDS.length;t++){ if(doneTypes[TASK_TYPE_IDS[t]]) completed++; }
+    var total = 1 + TASK_TYPE_IDS.length;
+    if(completed>=total) return 'status-full';
+    if(completed<=0) return 'status-none';
+    if(doneTypes['ex2'] && doneTypes['ex3']) return 'status-blue';
+    return 'status-partial';
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  function renderMonth(y,m){
+    var html = '<div class="month-card">';
+    html += '<div class="month-title">'+MONTHS[m]+'</div>';
+    html += '<div class="weekdays">';
+    for(var w=0; w<7; w++){ html += '<span>'+WEEKDAYS[w]+'</span>'; }
+    html += '</div>';
+    html += '<div class="days-grid">';
+    var offset = firstWeekdayMon(y,m);
+    for(var i=0;i<offset;i++){ html += '<div class="day-cell empty"></div>'; }
+    var dim = daysInMonth(y,m);
+    var tKey = todayKey();
+    for(var d=1; d<=dim; d++){
+      var key = dateKey(y,m,d);
+      var entry = state.days[key];
+      var cls = 'day-cell ' + dayStatus(entry);
+      var titleAttr = '';
+      if(key===tKey){ cls += ' today'; titleAttr = ' title="Сегодня"'; }
+      html += '<div class="'+cls+'" data-date="'+key+'"'+titleAttr+'>';
+      html += '<span class="day-num">'+d+'</span>';
+      var marks = '';
+      if(entry){
+        if(entry.exercises){
+          var seen = {};
+          for(var e=0;e<entry.exercises.length;e++){
+            var tid = entry.exercises[e].type;
+            if(!seen[tid]){
+              marks += '<span class="mark '+typeColorClass(tid)+'"></span>';
+              seen[tid]=true;
+            }
+          }
+        }
+      }
+      if(marks) html += '<div class="day-marks">'+marks+'</div>';
+      html += '</div>';
+    }
+    html += '</div></div>';
+    return html;
+  }
+
+  function computeYearTotals(y){
+    var water=0, hours=0, days=0, times=0;
+    for(var key in state.days){
+      if(key.indexOf(y+'-')===0){
+        var e = state.days[key];
+        if(e.water){ water += e.water; }
+        if(e.exercises){
+          for(var i=0;i<e.exercises.length;i++){
+            hours += (e.exercises[i].hours||0);
+            times += (e.exercises[i].times||1);
+          }
+        }
+        if((e.water) || (e.exercises && e.exercises.length)) days++;
+      }
+    }
+    return {water:water, hours:hours, days:days, times:times};
+  }
+
+  function renderApp(){
+    var y = state.year;
+    var totals = computeYearTotals(y);
+    var html = '';
+    html += '<div class="header">';
+    html += '<h1>💧🏋️ Календарь ' + y + '</h1>';
+    html += '<div class="year-nav">';
+    html += '<button id="prevYear">‹</button>';
+    html += '<span>'+y+'</span>';
+    html += '<button id="nextYear">›</button>';
+    html += '</div></div>';
+
+    html += '<div class="legend">';
+    html += '<span><span class="dot" style="background:#86efac"></span>Все задачи выполнены</span>';
+    html += '<span><span class="dot" style="background:#93c5fd"></span>Йога + танцы</span>';
+    html += '<span><span class="dot" style="background:#f9a8d4"></span>Частично выполнено</span>';
+    html += '<span><span class="dot" style="background:#fca5a5"></span>Ничего не выполнено</span>';
+    html += '<span>🔵 обводка — сегодня</span>';
+    html += '</div>';
+    html += '<div class="legend">';
+    html += '<span><span class="dot" style="background:var(--water)"></span>Вода ≥ 0.5 л</span>';
+    for(var i=0;i<state.types.length;i++){
+      var t = state.types[i];
+      html += '<span><span class="dot" style="background:var('+(typeColorClass(t.id)==='exN'?'--exN':'--'+typeColorClass(t.id))+')"></span>'+t.icon+' '+escapeHtml(t.name)+'</span>';
+    }
+    html += '</div>';
+
+    html += '<div class="summary-bar">';
+    html += '<div class="stat">Дней с активностью: <b>'+totals.days+'</b></div>';
+    html += '<div class="stat">Всего воды: <b>'+totals.water.toFixed(1)+' л</b></div>';
+    html += '<div class="stat">Всего тренировок: <b>'+totals.hours.toFixed(1)+' ч</b></div>';
+    html += '<div class="stat">Количество тренировок: <b>'+totals.times+' раз</b></div>';
+    html += '</div>';
+
+    html += '<div class="months-grid">';
+    for(var m=0;m<12;m++){ html += renderMonth(y,m); }
+    html += '</div>';
+
+    html += '<div class="storage-note" id="storageNote"></div>';
+
+    document.getElementById('app').innerHTML = html;
+
+    document.getElementById('prevYear').addEventListener('click', function(){
+      state.year -= 1; renderApp(); saveState();
+    });
+    document.getElementById('nextYear').addEventListener('click', function(){
+      state.year += 1; renderApp(); saveState();
+    });
+    var cells = document.querySelectorAll('.day-cell[data-date]');
+    for(var c=0;c<cells.length;c++){
+      cells[c].addEventListener('click', function(){
+        openModal(this.getAttribute('data-date'));
+      });
+    }
+    document.getElementById('storageNote').textContent = 'Данные сохраняются в памяти этого браузера.';
+
+    var todayCell = document.querySelector('.day-cell.today');
+    if(todayCell){
+      todayCell.setAttribute('tabindex','0');
+      if(scrollToToday){
+        scrollToToday = false;
+        setTimeout(function(){
+          todayCell.scrollIntoView({behavior:'smooth', block:'center'});
+          todayCell.focus();
+        }, 50);
+      }
+    }
+  }
+
+  function openModal(key){
+    editingDate = key;
+    var entry = state.days[key] || {water:null, exercises:[]};
+    if(!entry.exercises) entry.exercises = [];
+    var d = new Date(key+'T00:00:00');
+    var niceDate = d.getDate()+' '+MONTHS[d.getMonth()].toLowerCase()+' '+d.getFullYear();
+
+    var html = '<div class="overlay" id="overlay"><div class="modal">';
+    html += '<h2>'+niceDate+'</h2>';
+    html += '<div class="field"><label>Выпито воды (литры)</label>';
+    html += '<div class="water-row"><input type="number" id="waterInput" min="0" step="0.1" value="'+(entry.water!=null?entry.water:'')+'" placeholder="0.0"><span>л</span></div></div>';
+
+    html += '<div class="field"><label>Тренировки</label><div id="exRows">';
+    for(var i=0;i<entry.exercises.length;i++){
+      html += renderExRow(entry.exercises[i], i);
+    }
+    html += '</div>';
+    html += '<button class="add-ex-btn" id="addExBtn">+ Добавить тренировку</button>';
+    html += '<button class="add-type-btn" id="addTypeBtn">+ Добавить свой вид тренировки</button>';
+    html += '<div class="new-type-row" id="newTypeRow" style="display:none;">';
+    html += '<input type="text" id="newTypeInput" placeholder="Название, напр. Бег">';
+    html += '<button id="confirmNewType">ОК</button>';
+    html += '</div>';
+    html += '</div>';
+
+    html += '<div class="modal-actions">';
+    html += '<button class="btn cancel" id="cancelBtn">Отмена</button>';
+    html += '<button class="btn save" id="saveBtn">Сохранить</button>';
+    html += '</div>';
+    html += '</div></div>';
+
+    document.getElementById('modal-root').innerHTML = html;
+
+    document.getElementById('overlay').addEventListener('click', function(e){
+      if(e.target.id==='overlay') closeModal();
+    });
+    document.getElementById('cancelBtn').addEventListener('click', closeModal);
+    document.getElementById('addExBtn').addEventListener('click', function(){
+      var wrap = document.getElementById('exRows');
+      var idx = wrap.children.length;
+      wrap.insertAdjacentHTML('beforeend', renderExRow({type: state.types[0].id, hours:1, times:1}, idx));
+      attachRemoveHandlers();
+    });
+    document.getElementById('addTypeBtn').addEventListener('click', function(){
+      document.getElementById('newTypeRow').style.display = 'flex';
+    });
+    document.getElementById('confirmNewType').addEventListener('click', function(){
+      var val = document.getElementById('newTypeInput').value.trim();
+      if(val){
+        var id = 'ex_' + Date.now();
+        state.types.push({id:id, name:val, icon:'⭐'});
+        document.getElementById('newTypeInput').value='';
+        document.getElementById('newTypeRow').style.display='none';
+        // refresh selects to include new type
+        var selects = document.querySelectorAll('.ex-type-select');
+        for(var s=0;s<selects.length;s++){
+          selects[s].insertAdjacentHTML('beforeend', '<option value="'+id+'">'+escapeHtml(val)+'</option>');
+        }
+      }
+    });
+    document.getElementById('saveBtn').addEventListener('click', saveModal);
+    attachRemoveHandlers();
+  }
+
+  function renderExRow(ex, idx){
+    var html = '<div class="ex-row" data-idx="'+idx+'">';
+    html += '<select class="ex-type-select">';
+    for(var i=0;i<state.types.length;i++){
+      var t = state.types[i];
+      var sel = (t.id===ex.type) ? ' selected' : '';
+      html += '<option value="'+t.id+'"'+sel+'>'+t.icon+' '+escapeHtml(t.name)+'</option>';
+    }
+    html += '</select>';
+    html += '<input type="number" class="ex-hours-input" min="0" step="0.25" value="'+(ex.hours||'')+'" placeholder="часы">';
+    html += '<input type="number" class="ex-times-input" min="0" step="1" value="'+(ex.times||1)+'" placeholder="раз">';
+    html += '<button class="removeExBtn" title="Удалить">✕</button>';
+    html += '</div>';
+    return html;
+  }
+
+  function attachRemoveHandlers(){
+    var btns = document.querySelectorAll('.removeExBtn');
+    for(var i=0;i<btns.length;i++){
+      btns[i].onclick = function(){
+        this.parentElement.remove();
+      };
+    }
+  }
+
+  function closeModal(){
+    document.getElementById('modal-root').innerHTML = '';
+    editingDate = null;
+  }
+
+  function saveModal(){
+    var waterVal = document.getElementById('waterInput').value;
+    var water = waterVal === '' ? null : parseFloat(waterVal);
+    var rows = document.querySelectorAll('#exRows .ex-row');
+    var exercises = [];
+    for(var i=0;i<rows.length;i++){
+      var typeSel = rows[i].querySelector('.ex-type-select');
+      var hoursInp = rows[i].querySelector('.ex-hours-input');
+      var timesInp = rows[i].querySelector('.ex-times-input');
+      var hrs = parseFloat(hoursInp.value);
+      var times = parseInt(timesInp.value, 10);
+      if(isNaN(times) || times<1) times = 1;
+      if(!isNaN(hrs) && hrs>0){
+        exercises.push({type: typeSel.value, hours: hrs, times: times});
+      }
+    }
+    if((water===null || isNaN(water) || water<=0) && exercises.length===0){
+      delete state.days[editingDate];
+    } else {
+      state.days[editingDate] = {
+        water: (water!==null && !isNaN(water) && water>0) ? water : null,
+        exercises: exercises
+      };
+    }
+    closeModal();
+    renderApp();
+    saveState();
+  }
+
+  function showSaveStatus(text){
+    var el = document.getElementById('saveStatus');
+    el.textContent = text;
+    el.classList.add('show');
+    setTimeout(function(){ el.classList.remove('show'); }, 1200);
+  }
+
+  function saveState(){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      showSaveStatus('Сохранено');
+    }catch(e){
+      showSaveStatus('Не удалось сохранить');
+    }
+  }
+
+  function loadState(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if(raw){
+        var local = JSON.parse(raw);
+        if(local && local.days && local.types){ state = local; }
+      }
+    }catch(e){}
+  }
+
+  function init(){
+    loadState();
+    renderApp();
+    // keep a copy of the freshly-loaded state embedded in the page too,
+    // so opening the page fresh in another tab/session still shows real data
+    saveState();
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
